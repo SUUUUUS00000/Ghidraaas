@@ -1,4 +1,4 @@
-FROM eclipse-temurin:11-jre-noble
+FROM eclipse-temurin:11-jdk-jammy
 
 LABEL maintainer="anmarcel@cisco.com"
 
@@ -16,11 +16,11 @@ RUN useradd -m ghidra && \
 COPY --chown=ghidra:ghidra launch.sh.patch /tmp/
 WORKDIR /opt
 
-RUN apt-get update && apt-get install -y unzip wget gettext-base patch python3 python3-pip && \
+RUN apt-get update && apt-get install -y unzip wget gettext-base patch python3 python3-pip python3-venv && \
     wget -q -O ghidra.zip https://github.com && \
     unzip ghidra.zip && \
     rm ghidra.zip && \
-    ln -s ghidra_9.1.2_PUBLIC ghidra && \
+    ln -s jobject* ghidra 2>/dev/null || ln -s ghidra_9.1.2_PUBLIC ghidra && \
     cd ghidra && \
     patch -p0 < /tmp/launch.sh.patch && \
     rm -rf docs && \
@@ -29,12 +29,16 @@ RUN apt-get update && apt-get install -y unzip wget gettext-base patch python3 p
 
 WORKDIR /app
 COPY --chown=ghidra:ghidra . /app
-RUN pip3 install --no-cache-dir -r requirements.txt
+
+RUN python3 -m venv /opt/venv && \
+    /opt/venv/bin/pip install --upgrade pip && \
+    /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
 USER ghidra
 VOLUME /srv/repositories
 
 ENV ghidra_home=/opt/ghidra
+ENV PATH="/opt/venv/bin:$PATH"
 EXPOSE 8080
 
 CMD ["gunicorn", "-w", "2", "-t", "300", "-b", "0.0.0.0:8080", "flask_api:app"]
